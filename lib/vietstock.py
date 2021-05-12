@@ -42,6 +42,9 @@ def crawl_stock_finance_info(stock_symbol, report_term_type):
                     print("Null response, breaking")
                     break
                 continue
+            if report_term_type == "2" and page_num >= 2:
+                print("Enough, breaking")
+                break
             response = get_finance_info(stock_symbol, report_type, report_term_type, page_num)
             if not response:
                 print("Empty response, breaking")
@@ -50,9 +53,6 @@ def crawl_stock_finance_info(stock_symbol, report_term_type):
                 fp.write(response.content.decode("utf-8"))
             if not response.json()[0]:
                 print("Null response, breaking")
-                break
-            if report_term_type == "2" and page_num == 2:
-                print("Enough, breaking")
                 break
 
 
@@ -171,3 +171,70 @@ def filter_mandatory_stocks():
     list_corp = load_local_list_stock_raw()
     mandatory_exchange = {"HOSE", "UPCoM", "HNX"}
     return [corp["Code"] for corp in list_corp if corp["Exchange"] in mandatory_exchange]
+
+
+def get_dividend_history(stock_symbol, page_num):
+    cookies = {
+        'language': 'vi-VN',
+        'Theme': 'Light',
+        'AnonymousNotification': '',
+        'vst_usr_lg_token': '8Ejlzm/9S0mqAz8RPoQ2lg==',
+        'vst_isShowTourGuid': 'true',
+        'ASP.NET_SessionId': 'unejwk25m5e20fkn5prg4pht',
+        '__RequestVerificationToken': 'CcJ_4kVv-g7x3vmX20IFFIihFhfg7RAcjqMcN8SWQlZsUIWV9gq2X0I8z1_DXGjbBvE7CXLKPoNrSbiCDtAh5TEKv14-tTleXCZgxmduQfY1',
+    }
+
+    headers = {
+        'Connection': 'keep-alive',
+        'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"',
+        'Accept': '*/*',
+        'X-Requested-With': 'XMLHttpRequest',
+        'sec-ch-ua-mobile': '?0',
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Origin': 'https://finance.vietstock.vn',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Dest': 'empty',
+        'Referer': 'https://finance.vietstock.vn/%s/tin-tuc-su-kien.htm' % stock_symbol,
+        'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+    }
+
+    data = {
+        'eventTypeID': '1',
+        'channelID': '0',
+        'code': stock_symbol,
+        'catID': '-1',
+        'fDate': '',
+        'tDate': '',
+        'page': str(page_num),
+        'pageSize': '5',
+        'orderBy': 'Date1',
+        'orderDir': 'DESC'
+    }
+
+    response = common.wrap_request_post(
+        'https://finance.vietstock.vn/data/eventstypedata', headers=headers, cookies=cookies, data=data)
+
+    return response
+
+
+def get_dividend_events(stock_symbol):
+    list_events = []
+    page_num = 0
+    while True:
+        page_num += 1
+        r = get_dividend_history(stock_symbol, page_num)
+        if not r.content:
+            break
+        list_events.extend(r.json()[0])
+    return list_events
+
+
+def crawl_dividend_history():
+    stock_symbols = filter_mandatory_stocks()
+    for stock_symbol in stock_symbols:
+        list_events = get_dividend_events(stock_symbol)
+        with open("output/vietstock/%s-EVENT.json" % stock_symbol, "w") as fp:
+            json.dump(list_events, fp)
+        print(stock_symbol)
