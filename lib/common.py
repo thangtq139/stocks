@@ -14,7 +14,7 @@ def wrap_request_get(url, headers=None, cookies=None, data=None):
 def wrap_request(scheme, url, headers, cookies, data, retry=3, timeout=30):
     max_retry = retry
     while True:
-        wait_time = random.randint(500, 1000)
+        wait_time = random.randint(1000, 2000)
         try:
             if scheme == "POST":
                 response = requests.post(url, headers=headers, cookies=cookies, data=data, timeout=timeout)
